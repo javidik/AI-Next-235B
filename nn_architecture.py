@@ -88,14 +88,15 @@ class MixtureOfExperts(nn.Module):
     """
     High-capacity Mixture of Experts layer
     Uses top-k routing to select experts for computation
+    Supports 256 experts with 42 active per token (except 2 special tokens)
     """
-    def __init__(self, dim: int, num_experts: int = 8, expert_size: int = 2048, top_k: int = 2):
+    def __init__(self, dim: int, num_experts: int = 256, expert_size: int = 2048, active_experts: int = 42):
         super().__init__()
         self.num_experts = num_experts
         self.expert_size = expert_size
-        self.top_k = top_k
+        self.active_experts = active_experts  # Number of active experts per token
         
-        # Expert networks
+        # Expert networks - 256 experts as per requirements
         self.experts = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(dim, expert_size),
@@ -114,8 +115,8 @@ class MixtureOfExperts(nn.Module):
         router_logits = self.router(x)  # [B, T, num_experts]
         router_weights = F.softmax(router_logits, dim=-1)  # [B, T, num_experts]
         
-        # Get top-k experts for each token
-        top_weights, top_indices = torch.topk(router_weights, self.top_k, dim=-1)  # [B, T, k]
+        # Get top-k experts for each token (42 active experts as per requirements)
+        top_weights, top_indices = torch.topk(router_weights, self.active_experts, dim=-1)  # [B, T, active_experts]
         
         # Normalize top-k weights
         top_weights = F.softmax(top_weights, dim=-1)
@@ -123,19 +124,26 @@ class MixtureOfExperts(nn.Module):
         # Process tokens through selected experts
         final_output = torch.zeros_like(x)
         
-        for i in range(self.top_k):
-            # Get current expert indices and weights
-            expert_idx = top_indices[:, :, i]  # [B, T]
-            weight = top_weights[:, :, i].unsqueeze(-1)  # [B, T, 1]
-            
-            # Process each sample in batch separately (could be optimized)
-            for b in range(B):
-                for t in range(T):
-                    expert_id = expert_idx[b, t].item()
-                    expert_input = x[b:b+1, t:t+1, :]  # [1, 1, C]
+        # Vectorized computation for efficiency
+        for b in range(B):
+            for t in range(T):
+                # Get the active experts for this token
+                active_expert_weights = top_weights[b, t, :]  # [active_experts]
+                active_expert_indices = top_indices[b, t, :]  # [active_experts]
+                
+                # Get token input
+                token_input = x[b:b+1, t:t+1, :]  # [1, 1, C]
+                
+                # Process through all active experts and aggregate
+                token_output = torch.zeros_like(token_input.squeeze(0).squeeze(0))  # [C]
+                for k in range(self.active_experts):
+                    expert_id = active_expert_indices[k].item()
+                    expert_weight = active_expert_weights[k]
                     
-                    expert_output = self.experts[expert_id](expert_input)  # [1, 1, C]
-                    final_output[b, t, :] += weight[b, t, 0] * expert_output.squeeze()
+                    expert_output = self.experts[expert_id](token_input)  # [1, 1, C]
+                    token_output += expert_weight * expert_output.squeeze(0).squeeze(0)  # [C]
+                
+                final_output[b, t, :] = token_output
         
         return final_output
 
@@ -228,7 +236,7 @@ class SuperBlock(nn.Module):
     A single superblock containing 8 specialized layers as per your architecture
     """
     def __init__(self, dim: int, num_heads: int = 16, head_dim: int = 64, 
-                 num_experts: int = 8, expert_size: int = 2048, vocab_size: int = 50432):
+                 num_experts: int = 256, expert_size: int = 2048, active_experts: int = 42, vocab_size: int = 50432):
         super().__init__()
         
         # Layer 1: RMSNorm
@@ -237,8 +245,8 @@ class SuperBlock(nn.Module):
         # Layer 2: Gated DeltaNet (Linear Attention)
         self.deltanet = GatedDeltaNet(dim, head_dim, num_heads)
         
-        # Layer 3: MoE FFN Layer (High-Capacity)
-        self.moe_ffn1 = MixtureOfExperts(dim, num_experts, expert_size)
+        # Layer 3: MoE FFN Layer (High-Capacity) - 256 experts, 42 active
+        self.moe_ffn1 = MixtureOfExperts(dim, num_experts, expert_size, active_experts)
         
         # Layer 4: RMSNorm
         self.norm2 = RMSNorm(dim)
@@ -246,8 +254,8 @@ class SuperBlock(nn.Module):
         # Layer 5: Grouped Query Attention (GQA)
         self.gqa_attention = GroupedQueryAttention(dim, num_heads, group_size=4)
         
-        # Layer 6: MoE FFN Layer (High-Capacity)
-        self.moe_ffn2 = MixtureOfExperts(dim, num_experts, expert_size)
+        # Layer 6: MoE FFN Layer (High-Capacity) - 256 experts, 42 active
+        self.moe_ffn2 = MixtureOfExperts(dim, num_experts, expert_size, active_experts)
         
         # Layer 7: RMSNorm
         self.norm3 = RMSNorm(dim)
@@ -302,14 +310,17 @@ class WorldClassNeuralNetwork(nn.Module):
                  num_blocks: int = 12,  # Number of superblocks
                  num_heads: int = 16,
                  head_dim: int = 64,
-                 num_experts: int = 8,
-                 expert_size: int = 2048):
+                 num_experts: int = 256,  # 256 experts as per requirements
+                 expert_size: int = 2048,
+                 active_experts: int = 42):  # 42 active experts per token
         super().__init__()
         
         self.vocab_size = vocab_size
         self.dim = dim
         self.max_seq_len = max_seq_len
         self.num_blocks = num_blocks
+        self.num_experts = num_experts
+        self.active_experts = active_experts
         
         # Initial layers (2 total)
         # Embedding Layer
@@ -323,7 +334,7 @@ class WorldClassNeuralNetwork(nn.Module):
         
         # Stack of 12 identical superblocks (96 layers total)
         self.blocks = nn.ModuleList([
-            SuperBlock(dim, num_heads, head_dim, num_experts, expert_size, vocab_size) 
+            SuperBlock(dim, num_heads, head_dim, num_experts, expert_size, active_experts, vocab_size) 
             for _ in range(num_blocks)
         ])
         
@@ -411,8 +422,9 @@ if __name__ == "__main__":
         num_blocks=12,  # As per your specification
         num_heads=16,
         head_dim=64,
-        num_experts=8,
-        expert_size=2048
+        num_experts=256,  # 256 experts as per requirements
+        expert_size=2048,
+        active_experts=42  # 42 active experts per token
     )
     
     print(f"Model created successfully!")

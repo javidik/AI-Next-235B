@@ -1,22 +1,22 @@
-# World's Best Neural Network
+# World's Best Neural Network with Eisenhower Context Management
 
-Welcome to the implementation of the world's best neural network! This repository contains the complete architecture designed to achieve GPT-4o level performance with approximately 235 billion parameters.
+Welcome to the implementation of the world's best neural network! This repository contains the complete architecture designed to achieve GPT-4o level performance with approximately 235 billion parameters. The network features a novel Eisenhower Context Management Layer that categorizes and processes context based on importance and urgency.
 
 ## 🏗️ Architecture Overview
 
 The network consists of 101 total layers with the following structure:
 - **2 Initial Layers**: Embedding + Positional Encoding
-- **96 Core Layers**: 12 identical superblocks (8 layers each)
+- **96 Core Layers**: 12 identical superblocks (8 layers each) with integrated context management
 - **3 Final Layers**: Final RMSNorm + Output Layer + Softmax/Sampling
 
 Each superblock contains 8 specialized layers:
 1. RMSNorm
-2. Gated DeltaNet (Linear Attention)
-3. MoE FFN Layer (High-Capacity)
-4. RMSNorm
-5. Grouped Query Attention (GQA)
-6. MoE FFN Layer (High-Capacity)
-7. RMSNorm
+2. Grouped Query Attention (GQA)
+3. **NEW: Eisenhower Context Management Layer** (based on Eisenhower matrix)
+4. Gated DeltaNet (Linear Attention)
+5. MoE FFN Layer (High-Capacity)
+6. RMSNorm
+7. MoE FFN Layer (High-Capacity)
 8. Multi-Token Prediction (MTP) Head
 
 ## 📁 Repository Structure
@@ -27,6 +27,11 @@ Each superblock contains 8 specialized layers:
 ├── nn_architecture_numpy.py    # NumPy reference implementation
 ├── test_architecture.py        # Test version with smaller dimensions
 ├── ARCHITECTURE.md             # Detailed architecture documentation
+├── context_management_layer.py # NEW: Eisenhower Context Management Layer
+├── gui_context_manager.py      # NEW: GUI for context analysis
+├── transformer_architecture.py # NEW: Complete transformer with context management
+├── calculate_weights.py        # NEW: Parameter calculation with context layer
+├── verify_architecture.py      # NEW: Architecture verification
 ├── README.md                   # This file
 ├── MVP.xlsx                    # Development roadmap
 └── Слои.xlsx                   # Layer specifications
@@ -38,6 +43,10 @@ Each superblock contains 8 specialized layers:
 - ✅ Test version verified and working
 - ✅ Reference NumPy implementation complete
 - ✅ Scalable to 235B parameters
+- ✅ NEW: Eisenhower Context Management Layer implemented
+- ✅ NEW: Graphical User Interface for context analysis
+- ✅ NEW: Complete transformer architecture with integrated context management
+- ✅ NEW: Parameter calculation including context layer
 - ⚠️ PyTorch implementation ready but requires environment setup
 
 ## 🚀 Getting Started
@@ -46,6 +55,8 @@ Each superblock contains 8 specialized layers:
 ```bash
 # Install PyTorch (CPU version)
 pip install torch --index-url https://download.pytorch.org/whl/cpu
+# For GUI functionality
+pip install matplotlib
 ```
 
 ### Testing the Implementation
@@ -58,6 +69,18 @@ python test_architecture.py
 ```bash
 # For the full PyTorch implementation:
 python nn_architecture.py
+```
+
+### Using the New Context Management Features
+```bash
+# Launch the Eisenhower Context Management GUI
+python gui_context_manager.py
+
+# Verify the architecture with new components
+python verify_architecture.py
+
+# Calculate weights including the context management layer
+python calculate_weights.py
 ```
 
 ## 📊 Key Features
@@ -76,6 +99,14 @@ python nn_architecture.py
 - Designed for 235B parameters
 - Configurable dimensions and block counts
 - Modular architecture for easy experimentation
+
+### NEW: Eisenhower Context Management
+- **Eisenhower Matrix Implementation**: Categorizes context into 4 quadrants (Important/Urgent)
+- **Importance & Urgency Scoring**: Separate neural networks for each dimension
+- **Quadrant Classification**: Identifies "Do First", "Schedule", "Delegate", "Eliminate" contexts
+- **Chat Context Separation**: Distinguishes important from unimportant, urgent from main context
+- **Information Extraction**: Identifies and extracts key information from chat history
+- **Context-Aware Processing**: Adjusts processing based on context importance and urgency
 
 ## 🎯 Performance Goals
 
