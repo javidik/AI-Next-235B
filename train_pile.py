@@ -18,7 +18,7 @@ import glob
 import mmap
 
 # Import our neural network architecture
-from nn_architecture import TransformerArchitecture
+from nn_architecture import WorldClassNeuralNetwork
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -163,10 +163,10 @@ class Trainer:
             attention_mask = batch['attention_mask'].to(self.device)
             
             # Forward pass
-            outputs = self.model(input_ids, attention_mask=attention_mask)
+            logits, _ = self.model(input_ids, attention_mask=attention_mask)  # Unpack the tuple
             
             # Calculate loss
-            shift_logits = outputs[..., :-1, :].contiguous()
+            shift_logits = logits[..., :-1, :].contiguous()
             shift_labels = target_ids[..., 1:].contiguous()
             
             loss = self.criterion(
@@ -220,10 +220,10 @@ class Trainer:
                 attention_mask = batch['attention_mask'].to(self.device)
                 
                 # Forward pass
-                outputs = self.model(input_ids, attention_mask=attention_mask)
+                logits, _ = self.model(input_ids, attention_mask=attention_mask)  # Unpack the tuple
                 
                 # Calculate loss
-                shift_logits = outputs[..., :-1, :].contiguous()
+                shift_logits = logits[..., :-1, :].contiguous()
                 shift_labels = target_ids[..., 1:].contiguous()
                 
                 loss = self.criterion(
@@ -295,17 +295,16 @@ def main():
     
     # Initialize model
     logger.info("Initializing model...")
-    model = TransformerArchitecture(
+    model = WorldClassNeuralNetwork(
         vocab_size=50257,  # GPT-2 vocab size
-        d_model=8192,      # Hidden dimension (adjusted for 235B params)
-        nhead=64,          # Number of attention heads
-        num_layers=101,    # Total number of layers
-        dim_feedforward=32768,  # FFN dimension
+        dim=8192,          # Hidden dimension (adjusted for 235B params)
         max_seq_len=max_length,
-        dropout=0.1,
+        num_blocks=12,     # Number of superblocks (96 total block layers + 5 others = 101)
+        num_heads=64,      # Number of attention heads
+        head_dim=64,       # Head dimension
         num_experts=256,   # Number of experts per MoE layer (as per requirements)
-        active_experts=42, # Active experts per token (except special ones)
-        context_dim=512    # Dimension for context management
+        expert_size=32768, # Expert feedforward dimension
+        active_experts=42  # Active experts per token (except special ones)
     ).to(device)
     
     logger.info(f"Model initialized with {sum(p.numel() for p in model.parameters()):,} parameters")
