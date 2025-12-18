@@ -304,7 +304,7 @@ class WorldClassNeuralNetwork(nn.Module):
     Total: ~99-101 layers with approximately 235 billion parameters
     """
     def __init__(self, 
-                 vocab_size: int = 50432,  # Common vocab size for large models
+                 vocab_size: int = 50257,  # GPT-2 vocab size
                  dim: int = 8192,  # Hidden dimension
                  max_seq_len: int = 2048,  # Maximum sequence length
                  num_blocks: int = 12,  # Number of superblocks
