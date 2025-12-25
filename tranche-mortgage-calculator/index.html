@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор траншевой ипотеки - Профессиональный дашборд</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Калькулятор траншевой ипотеки</h1>
+            <p class="subtitle">Профессиональный дашборд с визуализацией платежей, диаграммами и таблицами</p>
+        </header>
+
+        <div class="dashboard-container">
+            <div class="input-section">
+                <h2>Параметры ипотеки</h2>
+                
+                <div class="form-group">
+                    <label for="totalAmount">Общая сумма ипотеки (руб):</label>
+                    <input type="number" id="totalAmount" value="5000000" min="100000">
+                </div>
+                
+                <div class="form-group">
+                    <label for="downPayment">Первоначальный взнос (руб):</label>
+                    <input type="number" id="downPayment" value="1000000" min="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="interestRate">Процентная ставка (%):</label>
+                    <input type="number" id="interestRate" value="12" min="0" step="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="loanTerm">Срок кредита (лет):</label>
+                    <input type="number" id="loanTerm" value="20" min="1" max="30">
+                </div>
+                
+                <div class="form-group">
+                    <label for="trancheCount">Количество траншей:</label>
+                    <input type="number" id="trancheCount" value="4" min="1" max="10">
+                </div>
+                
+                <div class="form-group">
+                    <label for="trancheInterval">Интервал между траншами (месяцы):</label>
+                    <input type="number" id="trancheInterval" value="6" min="1" max="24">
+                </div>
+                
+                <button class="btn" onclick="calculateMortgage()">Рассчитать</button>
+            </div>
+            
+            <div class="dashboard-section">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-label">Ежемесячный платеж</div>
+                        <div class="summary-value" id="monthlyPayment">0 ₽</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Общая переплата</div>
+                        <div class="summary-value" id="totalOverpayment">0 ₽</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Общая сумма выплат</div>
+                        <div class="summary-value" id="totalPayment">0 ₽</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Основной долг</div>
+                        <div class="summary-value" id="principalAmount">0 ₽</div>
+                    </div>
+                </div>
+                
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>График ежемесячных платежей</h3>
+                        <canvas id="paymentChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3>Структура платежа по траншам</h3>
+                        <canvas id="trancheChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3>Диаграмма выплат по годам</h3>
+                        <canvas id="yearlyChart"></canvas>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3>Диаграмма переплаты</h3>
+                        <canvas id="overpaymentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tables-section">
+            <div class="table-container">
+                <h3>Детализация по траншам</h3>
+                <div class="tranche-table" id="trancheTable">
+                    <!-- Tranche table will be populated here -->
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <h3>Расчет ежемесячных платежей</h3>
+                <div class="monthly-table" id="monthlyTable">
+                    <!-- Monthly payments table will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to calculate tranche mortgage
+        function calculateMortgage() {
+            // Get input values
+            const totalAmount = parseFloat(document.getElementById('totalAmount').value);
+            const downPayment = parseFloat(document.getElementById('downPayment').value);
+            const interestRate = parseFloat(document.getElementById('interestRate').value) / 100;
+            const loanTerm = parseInt(document.getElementById('loanTerm').value);
+            const trancheCount = parseInt(document.getElementById('trancheCount').value);
+            const trancheInterval = parseInt(document.getElementById('trancheInterval').value);
+            
+            // Calculate principal amount (loan amount after down payment)
+            const principal = totalAmount - downPayment;
+            
+            // Calculate monthly interest rate
+            const monthlyRate = interestRate / 12;
+            
+            // Calculate total number of payments
+            const totalPayments = loanTerm * 12;
+            
+            // Calculate monthly payment using annuity formula
+            const monthlyPayment = principal * (monthlyRate * Math.pow(1 + monthlyRate, totalPayments)) / 
+                                  (Math.pow(1 + monthlyRate, totalPayments) - 1);
+            
+            // Calculate total payment and overpayment
+            const totalPayment = monthlyPayment * totalPayments;
+            const totalOverpayment = totalPayment - principal;
+            
+            // Update results display
+            document.getElementById('monthlyPayment').textContent = formatCurrency(monthlyPayment);
+            document.getElementById('totalOverpayment').textContent = formatCurrency(totalOverpayment);
+            document.getElementById('totalPayment').textContent = formatCurrency(totalPayment);
+            document.getElementById('principalAmount').textContent = formatCurrency(principal);
+            
+            // Generate all visualizations and tables
+            generateTrancheTable(principal, monthlyPayment, totalPayments, trancheCount, trancheInterval);
+            generateMonthlyTable(principal, monthlyPayment, totalPayments, trancheCount, trancheInterval);
+            generatePaymentChart(monthlyPayment, totalPayments, trancheCount, trancheInterval);
+            generateTrancheChart(principal, trancheCount);
+            generateYearlyChart(monthlyPayment, loanTerm);
+            generateOverpaymentChart(principal, totalOverpayment);
+        }
+        
+        // Function to generate tranche table
+        function generateTrancheTable(principal, monthlyPayment, totalPayments, trancheCount, trancheInterval) {
+            const trancheTable = document.getElementById('trancheTable');
+            
+            // Calculate how much of the principal is allocated to each tranche
+            const principalPerTranche = principal / trancheCount;
+            
+            let tableHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Транш</th>
+                            <th>Сумма</th>
+                            <th>Начало (мес.)</th>
+                            <th>Окончание (мес.)</th>
+                            <th>Длительность (мес.)</th>
+                            <th>Ежемесячный платеж</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (let i = 0; i < trancheCount; i++) {
+                const trancheStartMonth = i * trancheInterval;
+                const trancheEndMonth = Math.min(trancheStartMonth + trancheInterval, totalPayments);
+                const trancheMonths = trancheEndMonth - trancheStartMonth;
+                
+                tableHTML += `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td>${formatCurrency(principalPerTranche)}</td>
+                        <td>${trancheStartMonth}</td>
+                        <td>${trancheEndMonth}</td>
+                        <td>${trancheMonths}</td>
+                        <td>${formatCurrency(monthlyPayment)}</td>
+                    </tr>
+                `;
+            }
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            trancheTable.innerHTML = tableHTML;
+        }
+        
+        // Function to generate monthly payments table (first 24 months)
+        function generateMonthlyTable(principal, monthlyPayment, totalPayments, trancheCount, trancheInterval) {
+            const monthlyTable = document.getElementById('monthlyTable');
+            
+            // Calculate monthly breakdown with interest and principal
+            const monthlyRate = (document.getElementById('interestRate').value / 100) / 12;
+            let remainingPrincipal = principal;
+            
+            let tableHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Месяц</th>
+                            <th>Платеж</th>
+                            <th>Основной долг</th>
+                            <th>Проценты</th>
+                            <th>Остаток долга</th>
+                            <th>Транш</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Show first 24 months for brevity
+            const monthsToShow = Math.min(24, totalPayments);
+            
+            for (let i = 0; i < monthsToShow; i++) {
+                // Calculate interest for this month
+                const interestPayment = remainingPrincipal * monthlyRate;
+                // Calculate principal payment for this month
+                const principalPayment = monthlyPayment - interestPayment;
+                // Update remaining principal
+                remainingPrincipal -= principalPayment;
+                
+                // Determine which tranche this month belongs to
+                const trancheNumber = Math.floor(i / trancheInterval) + 1;
+                
+                tableHTML += `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td>${formatCurrency(monthlyPayment)}</td>
+                        <td>${formatCurrency(principalPayment)}</td>
+                        <td>${formatCurrency(interestPayment)}</td>
+                        <td>${formatCurrency(Math.max(0, remainingPrincipal))}</td>
+                        <td>${trancheNumber}</td>
+                    </tr>
+                `;
+            }
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            monthlyTable.innerHTML = tableHTML;
+        }
+        
+        // Function to generate payment chart
+        function generatePaymentChart(monthlyPayment, totalPayments, trancheCount, trancheInterval) {
+            const canvas = document.getElementById('paymentChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Set canvas dimensions to match its display size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // Chart dimensions
+            const margin = { top: 40, right: 30, bottom: 60, left: 60 };
+            const width = canvas.width - margin.left - margin.right;
+            const height = canvas.height - margin.top - margin.bottom;
+            
+            // Draw title
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('График ежемесячных платежей', width / 2 + margin.left, 25);
+            
+            // Draw axes
+            ctx.beginPath();
+            ctx.moveTo(margin.left, margin.top);
+            ctx.lineTo(margin.left, height + margin.top);
+            ctx.lineTo(width + margin.left, height + margin.top);
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw labels
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Месяцы', width / 2 + margin.left, height + margin.top + 40);
+            
+            ctx.save();
+            ctx.translate(20, height / 2 + margin.top);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText('Платеж (руб)', 0, 0);
+            ctx.restore();
+            
+            // Draw grid lines and labels
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            
+            // Horizontal grid lines (payment amounts)
+            const maxPayment = Math.ceil(monthlyPayment / 100000) * 100000;
+            const step = maxPayment / 5;
+            
+            for (let i = 0; i <= 5; i++) {
+                const y = height - (i * step / maxPayment) * height + margin.top;
+                ctx.beginPath();
+                ctx.moveTo(margin.left, y);
+                ctx.lineTo(width + margin.left, y);
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = '#666';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(formatCurrency(step * i), margin.left - 10, y + 4);
+            }
+            
+            // Vertical grid lines (months)
+            const monthsToShow = Math.min(60, totalPayments); // Show max 60 months
+            const monthStep = Math.ceil(monthsToShow / 10);
+            
+            for (let i = 0; i <= 10; i++) {
+                const month = Math.min(i * monthStep, monthsToShow);
+                const x = (month / monthsToShow) * width + margin.left;
+                
+                ctx.beginPath();
+                ctx.moveTo(x, margin.top);
+                ctx.lineTo(x, height + margin.top);
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = '#666';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(month, x, height + margin.top + 20);
+            }
+            
+            // Draw payment curve
+            ctx.beginPath();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < Math.min(monthsToShow, totalPayments); i++) {
+                const x = (i / monthsToShow) * width + margin.left;
+                const y = height - (monthlyPayment / maxPayment) * height + margin.top;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Draw tranche intervals
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 3]);
+            
+            for (let i = 1; i < trancheCount; i++) {
+                const trancheStartMonth = i * trancheInterval;
+                if (trancheStartMonth >= monthsToShow) break;
+                
+                const x = (trancheStartMonth / monthsToShow) * width + margin.left;
+                
+                ctx.beginPath();
+                ctx.moveTo(x, margin.top);
+                ctx.lineTo(x, height + margin.top);
+                ctx.stroke();
+            }
+            
+            ctx.setLineDash([]);
+            
+            // Draw legend
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(width + margin.left - 150, margin.top + 20, 15, 10);
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '12px Arial';
+            ctx.fillText('Ежемесячный платеж', width + margin.left - 130, margin.top + 30);
+            
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 3]);
+            ctx.beginPath();
+            ctx.moveTo(width + margin.left - 150, margin.top + 50);
+            ctx.lineTo(width + margin.left - 135, margin.top + 50);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillText('Интервалы траншей', width + margin.left - 130, margin.top + 53);
+        }
+        
+        // Function to generate tranche chart (pie chart)
+        function generateTrancheChart(principal, trancheCount) {
+            const canvas = document.getElementById('trancheChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Set canvas dimensions to match its display size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // Chart dimensions
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(canvas.width, canvas.height) * 0.4;
+            
+            // Draw title
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Структура платежа по траншам', centerX, 30);
+            
+            // Draw pie chart
+            const principalPerTranche = principal / trancheCount;
+            const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#34495e', '#e67e22'];
+            
+            let startAngle = 0;
+            const sliceAngle = (2 * Math.PI) / trancheCount;
+            
+            for (let i = 0; i < trancheCount; i++) {
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                startAngle += sliceAngle;
+            }
+            
+            // Draw legend
+            const legendX = centerX + radius + 20;
+            const legendY = centerY - (trancheCount * 20) / 2;
+            
+            for (let i = 0; i < trancheCount; i++) {
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(legendX, legendY + i * 25, 15, 15);
+                
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(`Транш ${i + 1}: ${formatCurrency(principalPerTranche)}`, legendX + 20, legendY + i * 25 + 12);
+            }
+        }
+        
+        // Function to generate yearly chart
+        function generateYearlyChart(monthlyPayment, loanTerm) {
+            const canvas = document.getElementById('yearlyChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Set canvas dimensions to match its display size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // Chart dimensions
+            const margin = { top: 40, right: 30, bottom: 60, left: 60 };
+            const width = canvas.width - margin.left - margin.right;
+            const height = canvas.height - margin.top - margin.bottom;
+            
+            // Draw title
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Ежегодные выплаты', width / 2 + margin.left, 25);
+            
+            // Draw axes
+            ctx.beginPath();
+            ctx.moveTo(margin.left, margin.top);
+            ctx.lineTo(margin.left, height + margin.top);
+            ctx.lineTo(width + margin.left, height + margin.top);
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw labels
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Годы', width / 2 + margin.left, height + margin.top + 40);
+            
+            ctx.save();
+            ctx.translate(20, height / 2 + margin.top);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText('Выплаты (руб)', 0, 0);
+            ctx.restore();
+            
+            // Draw grid lines and labels
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            
+            // Calculate yearly payment
+            const yearlyPayment = monthlyPayment * 12;
+            const maxYearlyPayment = yearlyPayment;
+            
+            // Horizontal grid lines (payment amounts)
+            const step = maxYearlyPayment / 5;
+            
+            for (let i = 0; i <= 5; i++) {
+                const y = height - (i * step / maxYearlyPayment) * height + margin.top;
+                ctx.beginPath();
+                ctx.moveTo(margin.left, y);
+                ctx.lineTo(width + margin.left, y);
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = '#666';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(formatCurrency(step * i), margin.left - 10, y + 4);
+            }
+            
+            // Vertical grid lines (years)
+            const yearsToShow = Math.min(10, loanTerm);
+            
+            for (let i = 0; i <= yearsToShow; i++) {
+                const x = (i / yearsToShow) * width + margin.left;
+                
+                ctx.beginPath();
+                ctx.moveTo(x, margin.top);
+                ctx.lineTo(x, height + margin.top);
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = '#666';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(i, x, height + margin.top + 20);
+            }
+            
+            // Draw bars for yearly payments
+            const barWidth = (width / yearsToShow) * 0.8;
+            
+            for (let i = 0; i < yearsToShow; i++) {
+                const x = (i / yearsToShow) * width + margin.left + (width / yearsToShow - barWidth) / 2;
+                const y = height + margin.top - (yearlyPayment / maxYearlyPayment) * height;
+                const barHeight = (yearlyPayment / maxYearlyPayment) * height;
+                
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(x, y, barWidth, barHeight);
+                
+                // Add value label on top of bar
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(formatCurrency(yearlyPayment), x + barWidth / 2, y - 5);
+            }
+            
+            // Draw legend
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(width + margin.left - 100, margin.top + 20, 15, 15);
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '12px Arial';
+            ctx.fillText('Ежегодная выплата', width + margin.left - 80, margin.top + 32);
+        }
+        
+        // Function to generate overpayment chart
+        function generateOverpaymentChart(principal, totalOverpayment) {
+            const canvas = document.getElementById('overpaymentChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Set canvas dimensions to match its display size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // Chart dimensions
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(canvas.width, canvas.height) * 0.4;
+            
+            // Draw title
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Структура общей суммы выплат', centerX, 30);
+            
+            // Draw pie chart for principal vs overpayment
+            const totalPayment = principal + totalOverpayment;
+            const principalAngle = (principal / totalPayment) * 2 * Math.PI;
+            const overpaymentAngle = (totalOverpayment / totalPayment) * 2 * Math.PI;
+            
+            // Draw principal slice
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, 0, principalAngle);
+            ctx.closePath();
+            
+            ctx.fillStyle = '#3498db';
+            ctx.fill();
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw overpayment slice
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, principalAngle, principalAngle + overpaymentAngle);
+            ctx.closePath();
+            
+            ctx.fillStyle = '#e74c3c';
+            ctx.fill();
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw legend
+            const legendX = centerX + radius + 20;
+            const legendY = centerY - 25;
+            
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(legendX, legendY, 15, 15);
+            
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Основной долг: ${formatCurrency(principal)}`, legendX + 20, legendY + 12);
+            
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(legendX, legendY + 25, 15, 15);
+            
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillText(`Переплата: ${formatCurrency(totalOverpayment)}`, legendX + 20, legendY + 37);
+        }
+        
+        // Helper function to format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('ru-RU', {
+                style: 'currency',
+                currency: 'RUB',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        }
+        
+        // Initialize the calculator with default values
+        window.onload = function() {
+            calculateMortgage();
+        };
+        
+        // Recalculate when inputs change
+        document.addEventListener('input', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+                calculateMortgage();
+            }
+        });
+    </script>
+</body>
+</html>
